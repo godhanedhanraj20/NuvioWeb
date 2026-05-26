@@ -7006,6 +7006,64 @@ export const PlayerScreen = {
     return keyCode === 37 || keyCode === 38 || keyCode === 39 || keyCode === 40 || keyCode === 13;
   },
 
+  getMergedAudioTrackEntries(audioTracks = []) {
+    const entries = [];
+    const representedEmbeddedIndexes = new Set();
+
+    audioTracks.forEach((track, index) => {
+      const embeddedTrack = this.getEmbeddedAudioTrackByNativeIndex(index) || this.getEmbeddedAudioTrack(index);
+      const embeddedTrackIndex = Number(embeddedTrack?.embeddedTrackIndex);
+      if (Number.isFinite(embeddedTrackIndex) && embeddedTrackIndex >= 0) {
+        representedEmbeddedIndexes.add(embeddedTrackIndex);
+      }
+
+      const mergedTrack = this.mergeEmbeddedAudioTrackMetadata(track, index);
+      const display = formatAudioTrackDisplay(mergedTrack, index);
+      entries.push({
+        id: `audio-track-${index}`,
+        label: display.label,
+        secondary: display.secondary,
+        selected: Number.isFinite(embeddedTrackIndex) && this.selectedEmbeddedAudioTrackIndex >= 0
+          ? embeddedTrackIndex === this.selectedEmbeddedAudioTrackIndex
+          : index === this.selectedAudioTrackIndex,
+        audioTrackIndex: index,
+        track: mergedTrack
+      });
+    });
+
+    this.embeddedAudioTracks.forEach((track, index) => {
+      const embeddedTrackIndex = Number(track?.embeddedTrackIndex);
+      const normalizedEmbeddedIndex = Number.isFinite(embeddedTrackIndex) && embeddedTrackIndex >= 0
+        ? embeddedTrackIndex
+        : index;
+      const nativeTrackIndex = Number(track?.nativeTrackIndex);
+      const representedByNativeIndex = Number.isFinite(nativeTrackIndex)
+        && nativeTrackIndex >= 0
+        && nativeTrackIndex < audioTracks.length;
+      const representedByOrder = index < audioTracks.length;
+
+      if (
+        representedEmbeddedIndexes.has(normalizedEmbeddedIndex)
+        || representedByNativeIndex
+        || representedByOrder
+      ) {
+        return;
+      }
+
+      const display = formatAudioTrackDisplay(track, index);
+      entries.push({
+        id: `audio-embedded-${normalizedEmbeddedIndex}`,
+        label: display.label,
+        secondary: display.secondary,
+        selected: normalizedEmbeddedIndex === this.selectedEmbeddedAudioTrackIndex,
+        embeddedAudioTrackIndex: normalizedEmbeddedIndex,
+        track
+      });
+    });
+
+    return entries;
+  },
+
   getAudioEntries() {
     const cachedEntries = this.trackDialogCache?.audioEntries;
     if (cachedEntries) {
@@ -7074,31 +7132,8 @@ export const PlayerScreen = {
       });
         } else {
           const audioTracks = this.getAudioTracks();
-          if (audioTracks.length) {
-            entries = audioTracks.map((track, index) => {
-              const mergedTrack = this.mergeEmbeddedAudioTrackMetadata(track, index);
-              const display = formatAudioTrackDisplay(mergedTrack, index);
-              return {
-                id: `audio-track-${index}`,
-                label: display.label,
-                secondary: display.secondary,
-                selected: index === this.selectedAudioTrackIndex,
-                audioTrackIndex: index,
-                track: mergedTrack
-              };
-            });
-          } else if (this.embeddedAudioTracks.length) {
-            entries = this.embeddedAudioTracks.map((track, index) => {
-              const display = formatAudioTrackDisplay(track, index);
-              return {
-                id: `audio-embedded-${track?.embeddedTrackIndex ?? index}`,
-                label: display.label,
-                secondary: display.secondary,
-                selected: Number(track?.embeddedTrackIndex) === this.selectedEmbeddedAudioTrackIndex,
-                embeddedAudioTrackIndex: Number(track?.embeddedTrackIndex),
-                track
-              };
-            });
+          if (audioTracks.length || this.embeddedAudioTracks.length) {
+            entries = this.getMergedAudioTrackEntries(audioTracks);
           } else if (this.manifestAudioTracks.length) {
             entries = this.manifestAudioTracks.map((track, index) => {
               const display = formatAudioTrackDisplay(track, index);
