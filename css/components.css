@@ -12942,6 +12942,33 @@ button:focus-visible {
   font-size: 22px;
 }
 
+.legacy-webos .home-track > .home-content-card,
+.legacy-webos .home-modern-row .home-track > .home-content-card {
+  margin-right: 20px;
+}
+
+.legacy-webos .home-screen-shell.home-layout-modern .home-track > .home-content-card {
+  margin-right: 24px;
+}
+
+.legacy-webos .home-track > .home-content-card:last-child,
+.legacy-webos .home-modern-row .home-track > .home-content-card:last-child,
+.legacy-webos .home-screen-shell.home-layout-modern .home-track > .home-content-card:last-child {
+  margin-right: 0;
+}
+
+.legacy-webos .player-control-buttons > .player-control-btn,
+.legacy-webos .player-next-episode-card-inner > *,
+.legacy-webos .player-seek-overlay-bottom > * {
+  margin-right: 16px;
+}
+
+.legacy-webos .player-control-buttons > .player-control-btn:last-child,
+.legacy-webos .player-next-episode-card-inner > *:last-child,
+.legacy-webos .player-seek-overlay-bottom > *:last-child {
+  margin-right: 0;
+}
+
 @supports not (font-size: clamp(1px, 2px, 3px)) {
   .player-controls-overlay {
     padding: 48px;
@@ -13058,6 +13085,33 @@ button:focus-visible {
 
   .player-next-episode-title {
     font-size: 22px;
+  }
+
+  .home-track > .home-content-card,
+  .home-modern-row .home-track > .home-content-card {
+    margin-right: 20px;
+  }
+
+  .home-screen-shell.home-layout-modern .home-track > .home-content-card {
+    margin-right: 24px;
+  }
+
+  .home-track > .home-content-card:last-child,
+  .home-modern-row .home-track > .home-content-card:last-child,
+  .home-screen-shell.home-layout-modern .home-track > .home-content-card:last-child {
+    margin-right: 0;
+  }
+
+  .player-control-buttons > .player-control-btn,
+  .player-next-episode-card-inner > *,
+  .player-seek-overlay-bottom > * {
+    margin-right: 16px;
+  }
+
+  .player-control-buttons > .player-control-btn:last-child,
+  .player-next-episode-card-inner > *:last-child,
+  .player-seek-overlay-bottom > *:last-child {
+    margin-right: 0;
   }
 }
 
