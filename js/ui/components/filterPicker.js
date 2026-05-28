@@ -28,6 +28,7 @@ export function renderFilterPicker({
   value,
   options = [],
   open = false,
+  closing = false,
   focusIndex = 0,
   widthClass = "",
   classPrefix = "library-picker",
@@ -48,12 +49,20 @@ export function renderFilterPicker({
   const wrapperClassName = joinClasses(
     classPrefix,
     open ? "open" : "",
+    closing ? "closing" : "",
     widthClass,
     wrapperExtraClass
   );
   const anchorClassName = joinClasses(`${classPrefix}-anchor`, "focusable", anchorExtraClass);
-  const menuClassName = joinClasses(`${classPrefix}-menu`, menuExtraClass);
+  const menuClassName = joinClasses(
+    `${classPrefix}-menu`,
+    open ? `${classPrefix}-menu-open` : "",
+    closing ? `${classPrefix}-menu-closing` : "",
+    menuExtraClass
+  );
   const chevronClassName = `${classPrefix}-chevron`;
+  const shouldRenderMenu = open || closing;
+  const canFocusOptions = optionFocusable && open;
 
   return `
     <div class="${wrapperClassName}">
@@ -70,15 +79,15 @@ export function renderFilterPicker({
         </span>
         <span class="${classPrefix}-icon">${chevronSvg(open, chevronClassName)}</span>
       </div>
-      ${open ? `
-        <div class="${menuClassName}" role="listbox" aria-label="${escapeHtml(title)}">
+      ${shouldRenderMenu ? `
+        <div class="${menuClassName}" role="listbox" aria-label="${escapeHtml(title)}" aria-hidden="${open ? "false" : "true"}">
           ${options.map((option, index) => {
             const optionClassName = joinClasses(
               `${classPrefix}-option`,
-              optionFocusable ? "focusable" : "",
+              canFocusOptions ? "focusable" : "",
               optionExtraClass,
-              index === normalizedFocusIndex ? focusedOptionClass : "",
-              index === normalizedFocusIndex ? targetOptionClass : "",
+              open && index === normalizedFocusIndex ? focusedOptionClass : "",
+              open && index === normalizedFocusIndex ? targetOptionClass : "",
               index === normalizedSelectedIndex ? selectedOptionClass : ""
             );
             return `

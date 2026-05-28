@@ -16,6 +16,7 @@ import {
 } from "../../components/sidebarNavigation.js";
 
 const POSTER_HOLD_DELAY_MS = 650;
+const PICKER_MENU_EXIT_MS = 160;
 
 function toTitleCase(value) {
   const raw = String(value || "").trim();
@@ -162,6 +163,33 @@ function scrollNodeIntoContainerView(node, container, { center = false, padding 
 
 export const DiscoverScreen = {
 
+  clearClosingPicker() {
+    if (this.closingPickerTimer) {
+      clearTimeout(this.closingPickerTimer);
+      this.closingPickerTimer = null;
+    }
+    this.closingPicker = null;
+  },
+
+  startClosingPicker(picker) {
+    const pickerKey = String(picker || "");
+    if (!pickerKey) {
+      this.clearClosingPicker();
+      return;
+    }
+    if (this.closingPicker === pickerKey && this.closingPickerTimer) {
+      clearTimeout(this.closingPickerTimer);
+    }
+    this.closingPicker = pickerKey;
+    this.closingPickerTimer = setTimeout(() => {
+      this.closingPickerTimer = null;
+      if (this.closingPicker === pickerKey) {
+        this.closingPicker = null;
+        this.render();
+      }
+    }, PICKER_MENU_EXIT_MS);
+  },
+
   getRouteStateKey() {
     return "discover";
   },
@@ -235,6 +263,9 @@ export const DiscoverScreen = {
     this.loading = true;
 
     this.openPicker = null;
+    this.closingPicker = null;
+    this.closingPickerTimer = null;
+    this.lastRenderedOpenPicker = null;
     this.posterOptionsMenu = null;
     this.posterOptionsController = null;
     this.pendingPosterOptionsFocusKey = "";
@@ -1006,7 +1037,8 @@ export const DiscoverScreen = {
 
   renderFilterPicker(kind, title, value) {
     const isOpen = this.openPicker === kind;
-    const options = isOpen ? this.getPickerOptions(kind) : [];
+    const isClosing = this.closingPicker === kind;
+    const options = isOpen || isClosing ? this.getPickerOptions(kind) : [];
     const currentValue = this.getCurrentPickerValue(kind);
     const selectedIndex = Math.max(0, options.findIndex((option) => option.value === currentValue));
     const anchorAction = kind === "type"
@@ -1019,16 +1051,26 @@ export const DiscoverScreen = {
       value,
       options,
       open: isOpen,
+      closing: isClosing,
       focusIndex: this.pickerOptionIndex,
       selectedIndex,
       widthClass: "library-picker-flex",
-      anchorAction
+      anchorAction,
+      optionFocusable: isOpen
     });
   },
 
   render() {
     this.layoutPrefs = LayoutPreferences.get();
     this.sidebarExpanded = false;
+    const openPicker = this.openPicker || null;
+    if (this.lastRenderedOpenPicker && this.lastRenderedOpenPicker !== openPicker) {
+      this.startClosingPicker(this.lastRenderedOpenPicker);
+    }
+    if (openPicker && this.closingPicker === openPicker) {
+      this.clearClosingPicker();
+    }
+    this.lastRenderedOpenPicker = openPicker;
     const currentFocused = this.container?.querySelector(".focusable.focused");
     const currentFocusedAction = String(currentFocused?.dataset?.action || "");
     if (currentFocusedAction === "openDetail" || this.isFilterAction(currentFocusedAction)) {
@@ -1335,6 +1377,8 @@ export const DiscoverScreen = {
 
   cleanup() {
     this.loadToken = (this.loadToken || 0) + 1;
+    this.clearClosingPicker();
+    this.lastRenderedOpenPicker = null;
     this.cancelPendingPosterHold();
     this.posterOptionsMenu = null;
     this.posterOptionsController?.destroy?.({ restoreFocus: false });

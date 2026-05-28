@@ -25,6 +25,7 @@ import {
 } from "../../components/sidebarNavigation.js";
 
 const POSTER_HOLD_DELAY_MS = 650;
+const PICKER_MENU_EXIT_MS = 160;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -143,6 +144,33 @@ function groupNodesByRow(nodes = [], tolerance = 28) {
 
 export const LibraryScreen = {
 
+  clearClosingPicker() {
+    if (this.closingPickerTimer) {
+      clearTimeout(this.closingPickerTimer);
+      this.closingPickerTimer = null;
+    }
+    this.closingPicker = null;
+  },
+
+  startClosingPicker(picker) {
+    const pickerKey = String(picker || "");
+    if (!pickerKey) {
+      this.clearClosingPicker();
+      return;
+    }
+    if (this.closingPicker === pickerKey && this.closingPickerTimer) {
+      clearTimeout(this.closingPickerTimer);
+    }
+    this.closingPicker = pickerKey;
+    this.closingPickerTimer = setTimeout(() => {
+      this.closingPickerTimer = null;
+      if (this.closingPicker === pickerKey) {
+        this.closingPicker = null;
+        this.requestRender();
+      }
+    }, PICKER_MENU_EXIT_MS);
+  },
+
   cancelScheduledRender() {
     if (this.renderFrame) {
       cancelAnimationFrame(this.renderFrame);
@@ -180,6 +208,9 @@ export const LibraryScreen = {
     this.lastActionsRowAction = "openManageLists";
     this.pendingActionRestore = null;
     this.pendingPickerRestore = null;
+    this.closingPicker = null;
+    this.closingPickerTimer = null;
+    this.lastRenderedExpandedPicker = null;
     this.posterOptionsMenu = null;
     this.posterOptionsController = null;
     this.pendingPosterOptionsFocusKey = "";
@@ -281,6 +312,8 @@ export const LibraryScreen = {
 
   renderPicker(picker, title, value, options, widthClass = "") {
     const state = this.controller.getState();
+    const isOpen = state.expandedPicker === picker;
+    const isClosing = this.closingPicker === picker;
     const currentValue = picker === "list"
       ? state.selectedListKey
       : picker === "type"
@@ -296,12 +329,14 @@ export const LibraryScreen = {
       picker,
       title,
       value,
-      options,
-      open: state.expandedPicker === picker,
+      options: isOpen || isClosing ? options : [],
+      open: isOpen,
+      closing: isClosing,
       focusIndex: Number(state.pickerFocusIndex || 0),
       selectedIndex,
       widthClass,
-      targetOptionClass: "library-picker-option-target"
+      targetOptionClass: "library-picker-option-target",
+      optionFocusable: isOpen
     });
   },
 
@@ -507,6 +542,14 @@ export const LibraryScreen = {
     this.layoutPrefs = LayoutPreferences.get();
     this.sidebarExpanded = Boolean(this.layoutPrefs?.modernSidebar && this.sidebarExpanded);
     const state = this.controller.getState();
+    const expandedPicker = state.expandedPicker || null;
+    if (this.lastRenderedExpandedPicker && this.lastRenderedExpandedPicker !== expandedPicker) {
+      this.startClosingPicker(this.lastRenderedExpandedPicker);
+    }
+    if (expandedPicker && this.closingPicker === expandedPicker) {
+      this.clearClosingPicker();
+    }
+    this.lastRenderedExpandedPicker = expandedPicker;
     const posterWidth = 252;
     const posterRadius = 24;
     const libraryStyle = `--library-poster-width:${posterWidth}px;--library-poster-height:${Math.round(posterWidth * 1.5)}px;--library-poster-radius:${posterRadius}px;`;
@@ -1471,6 +1514,8 @@ export const LibraryScreen = {
 
   cleanup() {
     this.cancelScheduledRender();
+    this.clearClosingPicker();
+    this.lastRenderedExpandedPicker = null;
     this.cancelPendingPosterHold();
     this.posterOptionsMenu = null;
     this.posterOptionsController?.destroy?.({ restoreFocus: false });
