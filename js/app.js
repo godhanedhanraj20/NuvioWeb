@@ -75,10 +75,13 @@ function applyPerformanceMode() {
   const constrained = Platform.isWebOS() || Platform.isTizen() || isLowEndDevice();
   const webOsMajorVersion = Platform.isWebOS() ? Number(Platform.getWebOsMajorVersion() || 0) : 0;
   const legacyWebOs = webOsMajorVersion > 0 && webOsMajorVersion <= 6;
+  const legacyTizen = Platform.isTizen();
   document.documentElement.classList.toggle("performance-constrained", constrained);
   document.body.classList.toggle("performance-constrained", constrained);
   document.documentElement.classList.toggle("legacy-webos", legacyWebOs);
   document.body.classList.toggle("legacy-webos", legacyWebOs);
+  document.documentElement.classList.toggle("legacy-tizen", legacyTizen);
+  document.body.classList.toggle("legacy-tizen", legacyTizen);
 }
 
 function isAddonRemoteMode() {

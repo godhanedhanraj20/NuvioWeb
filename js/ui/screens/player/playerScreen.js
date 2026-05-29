@@ -3863,8 +3863,6 @@ export const PlayerScreen = {
 
     base.push({ action: "source", icon: "assets/icons/ic_player_source.svg", title: t("sources_title", {}, "Sources") });
 
-    base.push({ action: "switchEngine", label: "<>", title: t("cd_switch_player_engine", {}, "Switch player engine") });
-
     if (Array.isArray(uiState.episodesAll) && uiState.episodesAll.length) {
       base.push({ action: "episodes", icon: "assets/icons/ic_player_episodes.svg", title: t("episodes_panel_title", {}, "Episodes") });
     }
