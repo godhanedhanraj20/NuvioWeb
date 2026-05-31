@@ -5,8 +5,6 @@ node_modules/
 
 *.ipk
 
-appinfo.json
-
 webOSTVjs-1.2.12/*
 
 # Build output
