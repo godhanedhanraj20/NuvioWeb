@@ -5881,6 +5881,22 @@ export const HomeScreen = {
         }
       };
     }
+    if (!this.boundHomeMouseOverHandler) {
+      this.boundHomeMouseOverHandler = (event) => {
+        const target = event?.target?.closest?.(".home-main .home-content-card.focusable");
+        if (!target || !this.container?.contains(target) || target.classList.contains("focused")) {
+          return;
+        }
+        this.container.querySelectorAll(".home-main .focusable.focused").forEach((node) => node.classList.remove("focused"));
+        target.classList.add("focused");
+        if (this.isMainNode(target)) {
+          this.lastMainFocus = target;
+        }
+        this.syncFocusedCollectionCardState();
+        this.scheduleModernHeroUpdate(target);
+        this.scheduleFocusedPosterFlow(target);
+      };
+    }
     if (!this.boundHomeWheelHandler) {
       this.boundHomeWheelHandler = (event) => {
         const main = this.getHomeViewport();
@@ -5899,10 +5915,12 @@ export const HomeScreen = {
     if (this.boundHomeEventContainer) {
       this.boundHomeEventContainer.removeEventListener("focusin", this.boundHomeFocusInHandler);
       this.boundHomeEventContainer.removeEventListener("click", this.boundHomeClickHandler);
+      this.boundHomeEventContainer.removeEventListener("mouseover", this.boundHomeMouseOverHandler);
       this.boundHomeEventContainer.removeEventListener("wheel", this.boundHomeWheelHandler);
     }
     this.container.addEventListener("focusin", this.boundHomeFocusInHandler);
     this.container.addEventListener("click", this.boundHomeClickHandler);
+    this.container.addEventListener("mouseover", this.boundHomeMouseOverHandler);
     this.container.addEventListener("wheel", this.boundHomeWheelHandler, { passive: true });
     this.boundHomeEventContainer = this.container;
   },

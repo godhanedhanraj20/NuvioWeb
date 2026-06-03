@@ -631,13 +631,87 @@ function normalizeCodecBadge(value = "") {
   return normalizeBadgeText(value).toUpperCase();
 }
 
+const LANGUAGE_BADGE_ALIASES = {
+  en: "🇬🇧",
+  eng: "🇬🇧",
+  english: "🇬🇧",
+  hi: "🇮🇳",
+  hin: "🇮🇳",
+  hindi: "🇮🇳",
+  it: "🇮🇹",
+  ita: "🇮🇹",
+  italian: "🇮🇹",
+  es: "🇪🇸",
+  spa: "🇪🇸",
+  spanish: "🇪🇸",
+  fr: "🇫🇷",
+  fra: "🇫🇷",
+  fre: "🇫🇷",
+  french: "🇫🇷",
+  de: "🇩🇪",
+  deu: "🇩🇪",
+  ger: "🇩🇪",
+  german: "🇩🇪",
+  pt: "🇵🇹",
+  por: "🇵🇹",
+  portuguese: "🇵🇹",
+  "pt-br": "🇧🇷",
+  ptbr: "🇧🇷",
+  br: "🇧🇷",
+  brazilian: "🇧🇷",
+  "brazilian portuguese": "🇧🇷",
+  pl: "🇵🇱",
+  polish: "🇵🇱",
+  cs: "🇨🇿",
+  czech: "🇨🇿",
+  la: "LAT",
+  latino: "LAT",
+  ja: "🇯🇵",
+  jpn: "🇯🇵",
+  japanese: "🇯🇵",
+  ko: "🇰🇷",
+  kor: "🇰🇷",
+  korean: "🇰🇷",
+  zh: "🇨🇳",
+  chinese: "🇨🇳",
+  multi: "Multi"
+};
+
+function languageBadge(value = "") {
+  const text = normalizeBadgeText(value);
+  const normalized = text.toLowerCase();
+  const compact = normalized.replace(/[^a-z0-9]/g, "");
+  return LANGUAGE_BADGE_ALIASES[normalized] || LANGUAGE_BADGE_ALIASES[compact] || text;
+}
+
+function fallbackLanguagesFromText(text = "") {
+  const value = String(text || "");
+  const matches = [];
+  const pushMatch = (label) => {
+    if (label && !matches.includes(label)) {
+      matches.push(label);
+    }
+  };
+  if (/(^|[^a-z0-9])(pt[\s._-]?br|brazilian[\s._-]?portuguese)([^a-z0-9]|$)/i.test(value)) pushMatch("pt-br");
+  if (/(^|[^a-z0-9])(en|eng|english)([^a-z0-9]|$)/i.test(value)) pushMatch("en");
+  if (/(^|[^a-z0-9])(pt|por|portuguese)([^a-z0-9]|$)/i.test(value) && !matches.includes("pt-br")) pushMatch("pt");
+  if (/(^|[^a-z0-9])(it|ita|italian)([^a-z0-9]|$)/i.test(value)) pushMatch("it");
+  if (/(^|[^a-z0-9])(es|spa|spanish)([^a-z0-9]|$)/i.test(value)) pushMatch("es");
+  if (/(^|[^a-z0-9])(fr|fra|fre|french)([^a-z0-9]|$)/i.test(value)) pushMatch("fr");
+  if (/(^|[^a-z0-9])(de|deu|ger|german)([^a-z0-9]|$)/i.test(value)) pushMatch("de");
+  if (/(^|[^a-z0-9])(multi|multilang|multi[\s._-]?audio)([^a-z0-9]|$)/i.test(value)) pushMatch("multi");
+  return matches;
+}
+
 function fallbackPresentationFromText(stream = {}) {
+  const parsed = parsedStreamDetails(stream);
   const text = [
     stream.name,
     stream.title,
     stream.description,
     stream.behaviorHints?.filename,
-    stream.sourceType
+    stream.sourceType,
+    ...(Array.isArray(parsed.languages) ? parsed.languages : [])
   ].filter(Boolean).join(" ");
   const visualTags = [];
   if (/\b(dolby[ ._-]?vision|dovi|dv)\b/i.test(text)) visualTags.push("DV");
@@ -665,6 +739,7 @@ function fallbackPresentationFromText(stream = {}) {
     encode: normalizeCodecBadge(codec),
     audioTags,
     audioChannels,
+    languages: fallbackLanguagesFromText(text),
     size: stream.behaviorHints?.videoSize || 0
   };
 }
@@ -676,6 +751,9 @@ function getStreamPresentation(stream = {}) {
   const visualTags = toBadgeArray(presentation.visualTags?.length ? presentation.visualTags : parsed.hdr);
   const audioTags = toBadgeArray(presentation.audioTags?.length ? presentation.audioTags : parsed.audio);
   const audioChannels = toBadgeArray(presentation.audioChannels?.length ? presentation.audioChannels : parsed.channels);
+  const languages = toBadgeArray(presentation.languages?.length ? presentation.languages : parsed.languages);
+  const languageEmojis = toBadgeArray(presentation.languageEmojis?.length ? presentation.languageEmojis : []);
+  const resolvedLanguages = languages.length ? languages : fallback.languages;
   return {
     resolution: presentation.resolution || parsed.resolution || fallback.resolution,
     quality: presentation.quality || parsed.quality || fallback.quality,
@@ -683,6 +761,8 @@ function getStreamPresentation(stream = {}) {
     encode: normalizeCodecBadge(presentation.encode || parsed.codec || fallback.encode),
     audioTags: audioTags.length ? audioTags : fallback.audioTags,
     audioChannels: audioChannels.length ? audioChannels : fallback.audioChannels,
+    languages: resolvedLanguages,
+    languageEmojis: languageEmojis.length ? languageEmojis : resolvedLanguages.map(languageBadge).filter(Boolean),
     size: presentation.size || stream.behaviorHints?.videoSize || fallback.size,
     cached: presentation.cached,
     serviceShortName: presentation.serviceShortName || ""
@@ -701,6 +781,7 @@ function buildStreamBadges(stream = {}, enabled = true) {
   uniquePushBadge(badges, seen, presentation.quality, "quality");
   toBadgeArray(presentation.visualTags).slice(0, 3).forEach((tag) => uniquePushBadge(badges, seen, tag, "visual"));
   uniquePushBadge(badges, seen, presentation.encode, "codec");
+  toBadgeArray(presentation.languageEmojis).slice(0, 4).forEach((tag) => uniquePushBadge(badges, seen, tag, "language"));
   toBadgeArray(presentation.audioTags).slice(0, 3).forEach((tag) => uniquePushBadge(badges, seen, tag, "audio"));
   toBadgeArray(presentation.audioChannels).slice(0, 1).forEach((tag) => uniquePushBadge(badges, seen, tag, "audio"));
   uniquePushBadge(badges, seen, formatBytes(presentation.size), "size");

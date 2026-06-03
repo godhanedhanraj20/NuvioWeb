@@ -14932,7 +14932,7 @@ button:focus-visible {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 10px 0 8px;
+  margin: 10px -8px 0 0;
   max-width: 100%;
 }
 
@@ -14951,6 +14951,17 @@ button:focus-visible {
   font-weight: 800;
   white-space: nowrap;
   box-sizing: border-box;
+  margin: 0 8px 8px 0;
+}
+
+@supports (gap: 8px) {
+  .stream-route-card-badges {
+    margin: 10px 0 8px;
+  }
+
+  .stream-route-stream-badge {
+    margin: 0;
+  }
 }
 
 .stream-route-stream-badge.quality {
@@ -14975,6 +14986,12 @@ button:focus-visible {
   border-color: rgba(236, 72, 153, 0.34);
   background: rgba(236, 72, 153, 0.1);
   color: #f472b6;
+}
+
+.stream-route-stream-badge.language {
+  border-color: rgba(20, 184, 166, 0.34);
+  background: rgba(20, 184, 166, 0.1);
+  color: #5eead4;
 }
 
 .stream-route-stream-badge.size,
