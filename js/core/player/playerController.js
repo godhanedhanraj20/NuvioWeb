@@ -75,6 +75,46 @@ export const PlayerController = {
     return String(mimeType || "").toLowerCase().split(";")[0].trim();
   },
 
+  normalizePlaybackSourceType(sourceType) {
+    const raw = String(sourceType || "").trim();
+    if (!raw) {
+      return null;
+    }
+    if (raw.includes("/")) {
+      return raw;
+    }
+
+    const normalized = raw.toLowerCase();
+    const aliases = {
+      dash: "application/dash+xml",
+      hls: "application/vnd.apple.mpegurl",
+      m3u8: "application/vnd.apple.mpegurl",
+      m4v: "video/mp4",
+      mkv: "video/x-matroska",
+      mov: "video/quicktime",
+      mp4: "video/mp4",
+      mpd: "application/dash+xml",
+      ts: "video/mp2t",
+      webm: "video/webm"
+    };
+    return aliases[normalized] || null;
+  },
+
+  resolveRuntimeSourceType(sourceType) {
+    const normalized = this.normalizePlaybackSourceType(sourceType);
+    if (!normalized) {
+      return null;
+    }
+    if (
+      this.isLikelyHlsMimeType(normalized)
+      || this.isLikelyDashMimeType(normalized)
+      || this.isLikelySmoothStreamingMimeType(normalized)
+    ) {
+      return normalized;
+    }
+    return this.canPlayNatively(normalized) ? normalized : null;
+  },
+
   guessMediaMimeType(url) {
     const raw = String(url || "").trim();
     if (!raw) {
@@ -1599,11 +1639,11 @@ export const PlayerController = {
     }
 
     const candidates = [];
-    pushCandidate(candidates, "native-file");
-    if (!isTizenRuntime && canUseAvPlay) {
+    if (isTizenRuntime && canUseAvPlay) {
       pushCandidate(candidates, avplayEngine);
     }
-    if (isTizenRuntime && canUseAvPlay) {
+    pushCandidate(candidates, "native-file");
+    if (!isTizenRuntime && canUseAvPlay) {
       pushCandidate(candidates, avplayEngine);
     }
     return candidates;
@@ -2578,12 +2618,12 @@ export const PlayerController = {
     this.currentEpisodeTitle = episodeTitle || null;
     this.currentPlaybackUrl = String(url || "").trim();
     this.currentPlaybackHeaders = { ...(requestHeaders || {}) };
-    this.currentPlaybackMediaSourceType = mediaSourceType || null;
+    this.currentPlaybackMediaSourceType = this.resolveRuntimeSourceType(mediaSourceType);
     this.lastPlaybackErrorCode = 0;
     const playToken = Number(this.playRequestToken || 0) + 1;
     this.playRequestToken = playToken;
 
-    const sourceType = String(mediaSourceType || this.guessMediaMimeType(url) || "").trim() || null;
+    const sourceType = this.currentPlaybackMediaSourceType || this.resolveRuntimeSourceType(this.guessMediaMimeType(url)) || null;
     await this.ensureAdaptiveLibrariesForSource(sourceType);
     if (Number(this.playRequestToken || 0) !== playToken || String(this.currentPlaybackUrl || "") !== String(url || "").trim()) {
       return;

@@ -1344,6 +1344,8 @@ export const PlayerScreen = {
     this.silentAudioFallbackCount = 0;
     this.maxSilentAudioFallbackCount = 1;
     this.lastPlaybackErrorAt = 0;
+    this.failedPlaybackUrls = new Set();
+    this.failedPlaybackStreamIds = new Set();
     this.playbackStallTimer = null;
     this.lastPlaybackProgressAt = Date.now();
     this.hasPresentedPlaybackFrame = false;
@@ -1430,14 +1432,44 @@ export const PlayerScreen = {
     return Boolean(this.externalFrameUrl);
   },
 
+  resolvePlaybackMediaSourceType(streamCandidate = this.getCurrentStreamCandidate()) {
+    const normalizeSourceType = typeof PlayerController.normalizePlaybackSourceType === "function"
+      ? PlayerController.normalizePlaybackSourceType.bind(PlayerController)
+      : (value) => String(value || "").includes("/") ? String(value || "").trim() : null;
+
+    const declaredTypes = [
+      streamCandidate?.raw?.mimeType,
+      streamCandidate?.mimeType,
+      streamCandidate?.sampleMimeType,
+      streamCandidate?.sourceType,
+      streamCandidate?.raw?.type
+    ];
+    for (const value of declaredTypes) {
+      const normalized = normalizeSourceType(value);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    const filenameHints = [
+      streamCandidate?.behaviorHints?.filename,
+      streamCandidate?.raw?.behaviorHints?.filename,
+      streamCandidate?.raw?.filename
+    ];
+    for (const value of filenameHints) {
+      const guessed = typeof PlayerController.guessMediaMimeType === "function"
+        ? PlayerController.guessMediaMimeType(String(value || ""))
+        : null;
+      if (guessed) {
+        return guessed;
+      }
+    }
+    return null;
+  },
+
   buildPlaybackContext(streamCandidate = this.getCurrentStreamCandidate()) {
     const requestHeaders = this.getCurrentStreamRequestHeaders(streamCandidate);
-    const mediaSourceType = String(
-      streamCandidate?.sourceType
-      || streamCandidate?.raw?.type
-      || streamCandidate?.raw?.mimeType
-      || ""
-    ).trim();
+    const mediaSourceType = this.resolvePlaybackMediaSourceType(streamCandidate);
     return {
       itemId: this.params.itemId || null,
       itemType: normalizeItemType(this.params.itemType || "movie"),
@@ -3946,6 +3978,51 @@ export const PlayerScreen = {
         : 0;
       const mediaErrorCode = detailErrorCode || Number(video?.error?.code || 0) || controllerErrorCode;
 
+      this.markPlaybackSourceFailed(this.activePlaybackUrl);
+      if (!this.hasPresentedPlaybackFrame && (mediaErrorCode === 3 || mediaErrorCode === 4)) {
+        const targetEngine = typeof PlayerController.getAlternativePlaybackEngine === "function"
+          ? PlayerController.getAlternativePlaybackEngine(this.activePlaybackUrl)
+          : null;
+        if (targetEngine) {
+          this.lastPlaybackErrorAt = 0;
+          this.loadingVisible = true;
+          this.paused = false;
+          this.sourcesError = null;
+          this.updateLoadingVisibility();
+          console.warn("Playback failed during startup; switching player engine", {
+            url: this.activePlaybackUrl,
+            mediaErrorCode,
+            from: PlayerController.playbackEngine,
+            to: targetEngine
+          });
+          void this.playStreamByUrl(this.activePlaybackUrl, {
+            preservePanel: true,
+            resetSilentAudioState: false,
+            forceEngine: targetEngine
+          });
+          return;
+        }
+
+        const fallbackCandidate = this.findStartupPlaybackFallbackCandidate();
+        if (fallbackCandidate) {
+          this.lastPlaybackErrorAt = 0;
+          this.loadingVisible = true;
+          this.paused = false;
+          this.sourcesError = null;
+          this.updateLoadingVisibility();
+          console.warn("Playback failed during startup; trying next source", {
+            url: this.activePlaybackUrl,
+            mediaErrorCode,
+            nextSource: fallbackCandidate.url || fallbackCandidate.externalUrl || fallbackCandidate.id || ""
+          });
+          void this.playStreamCandidate(fallbackCandidate, {
+            preservePanel: true,
+            resetSilentAudioState: false
+          });
+          return;
+        }
+      }
+
       this.clearPlaybackStallGuard();
       this.releaseStartupAudioGate({ resume: false });
       this.loadingVisible = false;
@@ -5043,6 +5120,50 @@ export const PlayerScreen = {
       return;
     }
     await this.playStreamCandidate(selected, { preservePlaybackState: true });
+  },
+
+  markPlaybackSourceFailed(url = this.activePlaybackUrl) {
+    const normalizedUrl = String(url || "").trim();
+    if (normalizedUrl) {
+      (this.failedPlaybackUrls || (this.failedPlaybackUrls = new Set())).add(normalizedUrl);
+    }
+    const currentCandidate = this.getCurrentStreamCandidate?.();
+    const currentId = String(currentCandidate?.id || "").trim();
+    if (currentId) {
+      (this.failedPlaybackStreamIds || (this.failedPlaybackStreamIds = new Set())).add(currentId);
+    }
+  },
+
+  findStartupPlaybackFallbackCandidate() {
+    const candidates = Array.isArray(this.streamCandidates) ? this.streamCandidates : [];
+    if (candidates.length <= 1) {
+      return null;
+    }
+
+    const failedUrls = this.failedPlaybackUrls || new Set();
+    const failedIds = this.failedPlaybackStreamIds || new Set();
+    const startIndex = Number.isFinite(Number(this.currentStreamIndex))
+      ? Number(this.currentStreamIndex)
+      : 0;
+
+    for (let offset = 1; offset <= candidates.length; offset += 1) {
+      const candidate = candidates[(startIndex + offset) % candidates.length];
+      if (!candidate) {
+        continue;
+      }
+      const candidateId = String(candidate.id || "").trim();
+      const candidateUrl = String(candidate.url || candidate.externalUrl || "").trim();
+      if ((candidateId && failedIds.has(candidateId)) || (candidateUrl && failedUrls.has(candidateUrl))) {
+        continue;
+      }
+      if (candidateUrl || DirectDebridResolver.canResolveStream(candidate, {
+        season: this.params?.season == null ? null : Number(this.params.season),
+        episode: this.params?.episode == null ? null : Number(this.params.episode)
+      })) {
+        return candidate;
+      }
+    }
+    return null;
   },
 
   mediaErrorMessage(errorCode = 0) {
@@ -9297,7 +9418,23 @@ export const PlayerScreen = {
     const scored = streams
       .filter((stream) => Boolean(stream?.url))
       .map((stream) => {
-        const text = `${stream.title || stream.label || ""} ${stream.name || ""} ${stream.description || ""} ${stream.url || ""}`.toLowerCase();
+        const presentation = stream.streamPresentation || stream.raw?.streamPresentation || {};
+        const text = [
+          stream.title,
+          stream.label,
+          stream.name,
+          stream.description,
+          stream.behaviorHints?.filename,
+          stream.raw?.behaviorHints?.filename,
+          stream.raw?.filename,
+          presentation.resolution,
+          presentation.quality,
+          presentation.encode,
+          ...(Array.isArray(presentation.visualTags) ? presentation.visualTags : []),
+          ...(Array.isArray(presentation.audioTags) ? presentation.audioTags : []),
+          ...(Array.isArray(presentation.audioChannels) ? presentation.audioChannels : []),
+          stream.url
+        ].filter(Boolean).join(" ").toLowerCase();
         let score = 0;
 
         if (text.includes("2160") || text.includes("4k")) score += 60;
@@ -9320,7 +9457,8 @@ export const PlayerScreen = {
           score += supports("webmVp9", true) ? 8 : -50;
         }
         if (text.includes(".mkv") || text.includes("matroska")) {
-          score += supports("mkvH264", true) ? 8 : -60;
+          score += supports("mkvH264", true) ? 8 : -120;
+          if (isWebOsRuntime && !supports("mkvH264", false)) score -= 220;
         }
         if (text.includes(".webm")) {
           score += supports("webmVp9", true) ? 6 : -45;
