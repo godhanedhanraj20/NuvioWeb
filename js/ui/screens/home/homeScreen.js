@@ -1914,9 +1914,11 @@ function renderLegacyCatalogRowsMarkup(rows = [], options = {}) {
     const maxItems = Math.max(1, Number(rowItemLimit || HOME_MAX_ITEMS_PER_ROW_DEFAULT));
     const hasSeeAll = !isCollectionRow && !isLoading && items.length > maxItems;
     const gridLimit = Math.max(1, hasSeeAll ? maxItems - 1 : maxItems);
-    const visibleItems = layoutMode === "grid"
-      ? rowItems.slice(0, gridLimit)
-      : rowItems.slice(0, maxItems);
+    const visibleItems = isCollectionRow
+      ? rowItems
+      : (layoutMode === "grid"
+        ? rowItems.slice(0, gridLimit)
+        : rowItems.slice(0, maxItems));
     const cardsMarkup = visibleItems.map((item, itemIndex) => createPosterCardMarkup(
       item,
       rowIndex,
