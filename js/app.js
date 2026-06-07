@@ -151,7 +151,6 @@ async function routeAfterAuthentication() {
   if (activeProfile) {
     await ProfileManager.setActiveProfile(activeProfile.id);
     await ProfileSettingsSyncService.pull(activeProfile.id);
-    await preloadStreamBadgeImages();
   }
   Router.navigate("home");
 }

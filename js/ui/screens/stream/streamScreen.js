@@ -1208,17 +1208,6 @@ export const StreamScreen = {
           logo: group?.addonLogo || "",
           orderIndex: group?.addonOrderIndex
         })));
-        const chunkItems = this.applyAddonLogos(flattenStreams(chunkResult));
-        if (!chunkItems.length) {
-          this.requestRender();
-          return;
-        }
-        this.streams = mergeStreamItems(this.streams, chunkItems);
-        this.scheduleDebridPreparation();
-        this.loading = false;
-        if (this.focusState.zone !== "card") {
-          this.focusState = { zone: "card", index: 0 };
-        }
         this.requestRender();
       }
     };
@@ -1228,7 +1217,12 @@ export const StreamScreen = {
       if (token !== this.loadToken) {
         return;
       }
-      this.streams = mergeStreamItems(this.streams, this.applyAddonLogos(flattenStreams(streamResult)));
+      const loadedStreams = mergeStreamItems([], this.applyAddonLogos(flattenStreams(streamResult)));
+      await preloadStreamBadgeImages();
+      if (token !== this.loadToken) {
+        return;
+      }
+      this.streams = loadedStreams;
       this.scheduleDebridPreparation();
       markSuccessfulSources(this.streams.map((stream) => stream.addonName));
       this.sourceChips = this.sourceChips.map((chip) => (
