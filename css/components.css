@@ -10839,6 +10839,11 @@ button:focus-visible {
   flex-direction: column;
 }
 
+.player-subtitle-modal {
+  height: min(72vh, calc(100vh - 128px));
+  overflow: hidden;
+}
+
 .player-audio-modal {
   width: min(724px, calc(100vw - 88px));
 }
@@ -11286,7 +11291,11 @@ button:focus-visible {
   display: grid;
   grid-template-columns: 220px 1fr 280px;
   gap: 14px;
+  flex: 1;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
 }
 
 .player-subtitle-rail {
@@ -11294,11 +11303,13 @@ button:focus-visible {
   flex-direction: column;
   gap: 8px;
   min-height: 0;
-  max-height: 60vh;
+  height: 100%;
+  max-height: none;
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: none;
   padding-right: 6px;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   scroll-padding-top: 10px;
   scroll-padding-bottom: 10px;
 }
@@ -11494,6 +11505,8 @@ button:focus-visible {
 
 .player-subtitle-modal {
   bottom: min(2.92vw, 56px); /* ATV subtitle scaffold bottom 28dp -> 56px */
+  height: min(75vh, calc(100vh - min(9.58vw, 184px)));
+  overflow: hidden;
 }
 
 .player-speed-modal {
@@ -11515,8 +11528,10 @@ button:focus-visible {
 
 .player-subtitle-rail {
   gap: min(0.42vw, 8px); /* ATV 4dp -> 8px */
-  max-height: min(75vw, 1440px); /* ATV 720dp -> 1440px */
+  height: 100%;
+  max-height: none;
   padding: min(0.83vw, 16px) 0;
+  scroll-behavior: auto;
 }
 
 .player-subtitle-rail::before {

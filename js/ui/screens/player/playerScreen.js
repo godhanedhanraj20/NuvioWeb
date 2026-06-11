@@ -8095,7 +8095,34 @@ export const PlayerScreen = {
         count: 1
       });
     }
-    const values = Array.from(groups.values());
+    const preferredTargets = this.getStartupPreferredSubtitleLanguageTargets();
+    const getPreferredRank = (entry) => {
+      const key = String(entry?.key || "");
+      if (!key || key === SUBTITLE_LANGUAGE_OFF_KEY) {
+        return Number.MAX_SAFE_INTEGER;
+      }
+      const keyBase = key.split("-")[0];
+      const rank = preferredTargets.findIndex((target) => {
+        const targetKey = String(target || "");
+        const targetBase = targetKey.split("-")[0];
+        return key === targetKey || (keyBase && targetBase && keyBase === targetBase);
+      });
+      return rank >= 0 ? rank : Number.MAX_SAFE_INTEGER;
+    };
+    const locale = typeof I18n.getLocale === "function" ? I18n.getLocale() : undefined;
+    const values = Array.from(groups.values()).sort((left, right) => {
+      if (left.key === SUBTITLE_LANGUAGE_OFF_KEY) return -1;
+      if (right.key === SUBTITLE_LANGUAGE_OFF_KEY) return 1;
+      const preferredDelta = getPreferredRank(left) - getPreferredRank(right);
+      if (preferredDelta !== 0) {
+        return preferredDelta;
+      }
+      const labelDelta = String(left.label || "").localeCompare(String(right.label || ""), locale, { sensitivity: "base" });
+      if (labelDelta !== 0) {
+        return labelDelta;
+      }
+      return String(left.key || "").localeCompare(String(right.key || ""), "en", { sensitivity: "base" });
+    });
     const offIndex = values.findIndex((entry) => entry.key === SUBTITLE_LANGUAGE_OFF_KEY);
     if (offIndex > 0) {
       const [offEntry] = values.splice(offIndex, 1);
@@ -8149,13 +8176,25 @@ export const PlayerScreen = {
     if (!(node instanceof HTMLElement)) {
       return;
     }
-    try {
-      node.scrollIntoView({
-        block: "nearest",
-        inline: "nearest"
-      });
-    } catch (_) {
-      node.scrollIntoView();
+    const rail = node.closest(".player-subtitle-rail");
+    if (!(rail instanceof HTMLElement)) {
+      return;
+    }
+    const margin = 12;
+    const nodeTop = Number(node.offsetTop || 0);
+    const nodeBottom = nodeTop + Number(node.offsetHeight || 0);
+    const viewTop = Number(rail.scrollTop || 0);
+    const viewBottom = viewTop + Number(rail.clientHeight || 0);
+    let nextScrollTop = viewTop;
+    if (center) {
+      nextScrollTop = nodeTop - Math.max(0, (Number(rail.clientHeight || 0) - Number(node.offsetHeight || 0)) / 2);
+    } else if (nodeTop < viewTop + margin) {
+      nextScrollTop = nodeTop - margin;
+    } else if (nodeBottom > viewBottom - margin) {
+      nextScrollTop = nodeBottom - Number(rail.clientHeight || 0) + margin;
+    }
+    if (nextScrollTop !== viewTop) {
+      rail.scrollTop = Math.max(0, nextScrollTop);
     }
   },
 
@@ -8186,7 +8225,21 @@ export const PlayerScreen = {
     if (optionsByLanguage?.has(normalizedLanguageKey)) {
       return optionsByLanguage.get(normalizedLanguageKey);
     }
-    const filteredOptions = this.collectSubtitleOptionItems().filter((entry) => entry.languageKey === normalizedLanguageKey && entry.languageKey !== SUBTITLE_LANGUAGE_OFF_KEY);
+    const sourceRank = { internal: 0, addon: 1, off: 2 };
+    const locale = typeof I18n.getLocale === "function" ? I18n.getLocale() : undefined;
+    const filteredOptions = this.collectSubtitleOptionItems()
+      .filter((entry) => entry.languageKey === normalizedLanguageKey && entry.languageKey !== SUBTITLE_LANGUAGE_OFF_KEY)
+      .sort((left, right) => {
+        const sourceDelta = (sourceRank[left.sourceType] ?? 99) - (sourceRank[right.sourceType] ?? 99);
+        if (sourceDelta !== 0) {
+          return sourceDelta;
+        }
+        const secondaryDelta = String(left.secondary || "").localeCompare(String(right.secondary || ""), locale, { sensitivity: "base" });
+        if (secondaryDelta !== 0) {
+          return secondaryDelta;
+        }
+        return String(left.title || "").localeCompare(String(right.title || ""), locale, { sensitivity: "base" });
+      });
     optionsByLanguage?.set(normalizedLanguageKey, filteredOptions);
     return filteredOptions;
   },
@@ -8777,6 +8830,16 @@ export const PlayerScreen = {
     }
 
     if (entry.fallbackAddonSubtitle) {
+      const subtitle = this.subtitles[entry.subtitleIndex];
+      const subtitleId = subtitle?.id || subtitle?.url || `subtitle-${entry.subtitleIndex}`;
+      this.selectedAddonSubtitleId = subtitleId;
+      this.selectedSubtitleTrackIndex = -1;
+      this.selectedEmbeddedSubtitleTrackIndex = -1;
+      this.selectedManifestSubtitleTrackId = null;
+      this.invalidateTrackDialogCaches();
+      this.refreshSubtitleCueStyles();
+      this.renderControlButtons();
+      this.renderSubtitleDialog();
       void this.applyFallbackAddonSubtitle(entry.subtitleIndex);
       return;
     }
