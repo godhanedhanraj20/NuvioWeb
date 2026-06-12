@@ -130,13 +130,9 @@ const LANGUAGE_OPTIONS = [
     .sort((left, right) => String(left.label || "").localeCompare(String(right.label || "")))
 ];
 
-const PREFERRED_PLAYBACK_LANGUAGE_OPTIONS = [
-  { id: "system", labelKey: "common.system" },
-  { id: "en", labelKey: "common.english" },
-  { id: "it", labelKey: "common.italian" }
-];
-
-const AVAILABLE_SUBTITLE_LANGUAGES = [
+// Shared language catalogue used to build the subtitle, audio and TMDB
+// language pickers below.
+const AVAILABLE_LANGUAGES = [
   { id: "af", label: "Afrikaans" },
   { id: "sq", label: "Albanian" },
   { id: "am", label: "Amharic" },
@@ -219,7 +215,15 @@ const AVAILABLE_SUBTITLE_LANGUAGES = [
 
 const PREFERRED_SUBTITLE_LANGUAGE_OPTIONS = [
   { id: "off", label: "Off" },
-  ...AVAILABLE_SUBTITLE_LANGUAGES
+  ...AVAILABLE_LANGUAGES
+];
+
+// Preferred audio language previously only offered System / English / Italian.
+// The selected value is matched generically against each stream's audio tracks,
+// so the full shared language catalogue can be offered.
+const PREFERRED_PLAYBACK_LANGUAGE_OPTIONS = [
+  { id: "system", labelKey: "common.system" },
+  ...AVAILABLE_LANGUAGES
 ];
 
 const TMDB_LANGUAGE_OPTIONS = [
@@ -227,7 +231,7 @@ const TMDB_LANGUAGE_OPTIONS = [
   { id: "en-AU", label: "English (Australia)" },
   { id: "en-CA", label: "English (Canada)" },
   { id: "en-GB", label: "English (United Kingdom)" },
-  ...AVAILABLE_SUBTITLE_LANGUAGES.filter((option) => option.id !== "en")
+  ...AVAILABLE_LANGUAGES.filter((option) => option.id !== "en")
 ].sort((left, right) => String(left.label || "").localeCompare(String(right.label || "")));
 
 const DEBRID_PREPARE_LIMIT_OPTIONS = [
