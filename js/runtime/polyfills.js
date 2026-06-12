@@ -8,6 +8,223 @@
   delete Object.prototype.__magic__;
 }());
 
+// ES2015-2017 builtins missing on older TV engines (webOS 3/4 ship Chromium
+// 38/53). The bundle is transpiled for syntax down to "chrome 38", but builtin
+// APIs are only available through this file, and Object.entries & friends were
+// absent — profile-scoped stores call Object.entries during bootstrap, so the
+// app crashed before the UI rendered (issue #195).
+if (!Array.from) {
+  Array.from = function from(source, mapFn, thisArg) {
+    if (source == null) {
+      throw new TypeError("Array.from requires an array-like object");
+    }
+    var result = [];
+    var index = 0;
+    var iteratorMethod = typeof Symbol !== "undefined" && Symbol.iterator && source[Symbol.iterator];
+    if (typeof iteratorMethod === "function") {
+      var iterator = iteratorMethod.call(source);
+      var step = iterator.next();
+      while (!step.done) {
+        result.push(mapFn ? mapFn.call(thisArg, step.value, index) : step.value);
+        index += 1;
+        step = iterator.next();
+      }
+      return result;
+    }
+    var arrayLike = Object(source);
+    var length = Math.max(0, Math.floor(Number(arrayLike.length) || 0));
+    for (; index < length; index += 1) {
+      var value = arrayLike[index];
+      result.push(mapFn ? mapFn.call(thisArg, value, index) : value);
+    }
+    return result;
+  };
+}
+
+if (!Array.prototype.find) {
+  Object.defineProperty(Array.prototype, "find", {
+    value: function find(predicate, thisArg) {
+      for (var index = 0; index < this.length; index += 1) {
+        if (predicate.call(thisArg, this[index], index, this)) {
+          return this[index];
+        }
+      }
+      return undefined;
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
+if (!Array.prototype.findIndex) {
+  Object.defineProperty(Array.prototype, "findIndex", {
+    value: function findIndex(predicate, thisArg) {
+      for (var index = 0; index < this.length; index += 1) {
+        if (predicate.call(thisArg, this[index], index, this)) {
+          return index;
+        }
+      }
+      return -1;
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
+if (!Array.prototype.includes) {
+  Object.defineProperty(Array.prototype, "includes", {
+    value: function includes(searchElement, fromIndex) {
+      var start = Math.max(0, Number(fromIndex) || 0);
+      for (var index = start; index < this.length; index += 1) {
+        var value = this[index];
+        if (value === searchElement
+          || (typeof value === "number" && typeof searchElement === "number" && isNaN(value) && isNaN(searchElement))) {
+          return true;
+        }
+      }
+      return false;
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
+if (!Array.prototype.fill) {
+  Object.defineProperty(Array.prototype, "fill", {
+    value: function fill(value, start, end) {
+      var length = this.length;
+      var from = Number(start) || 0;
+      var to = end === undefined ? length : Number(end) || 0;
+      from = from < 0 ? Math.max(length + from, 0) : Math.min(from, length);
+      to = to < 0 ? Math.max(length + to, 0) : Math.min(to, length);
+      for (var index = from; index < to; index += 1) {
+        this[index] = value;
+      }
+      return this;
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
+if (!Object.assign) {
+  Object.assign = function assign(target) {
+    if (target == null) {
+      throw new TypeError("Cannot convert undefined or null to object");
+    }
+    var to = Object(target);
+    for (var argIndex = 1; argIndex < arguments.length; argIndex += 1) {
+      var source = arguments[argIndex];
+      if (source == null) {
+        continue;
+      }
+      var from = Object(source);
+      for (var key in from) {
+        if (Object.prototype.hasOwnProperty.call(from, key)) {
+          to[key] = from[key];
+        }
+      }
+    }
+    return to;
+  };
+}
+
+if (!Object.entries) {
+  Object.entries = function entries(source) {
+    var target = Object(source);
+    var result = [];
+    for (var key in target) {
+      if (Object.prototype.hasOwnProperty.call(target, key)) {
+        result.push([key, target[key]]);
+      }
+    }
+    return result;
+  };
+}
+
+if (!Object.values) {
+  Object.values = function values(source) {
+    var target = Object(source);
+    var result = [];
+    for (var key in target) {
+      if (Object.prototype.hasOwnProperty.call(target, key)) {
+        result.push(target[key]);
+      }
+    }
+    return result;
+  };
+}
+
+if (!String.prototype.includes) {
+  Object.defineProperty(String.prototype, "includes", {
+    value: function includes(search, start) {
+      return String(this).indexOf(search, Number(start) || 0) !== -1;
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
+if (!String.prototype.startsWith) {
+  Object.defineProperty(String.prototype, "startsWith", {
+    value: function startsWith(search, position) {
+      var source = String(this);
+      var from = Number(position) || 0;
+      return source.slice(from, from + String(search).length) === String(search);
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
+if (!String.prototype.endsWith) {
+  Object.defineProperty(String.prototype, "endsWith", {
+    value: function endsWith(search, endPosition) {
+      var source = String(this);
+      var end = endPosition === undefined ? source.length : Number(endPosition) || 0;
+      var needle = String(search);
+      return source.slice(Math.max(0, end - needle.length), end) === needle;
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
+function buildStringPad(source, targetLength, padString) {
+  var current = String(source);
+  var length = Math.floor(Number(targetLength) || 0);
+  var pad = padString === undefined ? " " : String(padString);
+  if (current.length >= length || pad === "") {
+    return "";
+  }
+  var missing = length - current.length;
+  var filler = "";
+  while (filler.length < missing) {
+    filler += pad;
+  }
+  return filler.slice(0, missing);
+}
+
+if (!String.prototype.padStart) {
+  Object.defineProperty(String.prototype, "padStart", {
+    value: function padStart(targetLength, padString) {
+      return buildStringPad(this, targetLength, padString) + String(this);
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
+if (!String.prototype.padEnd) {
+  Object.defineProperty(String.prototype, "padEnd", {
+    value: function padEnd(targetLength, padString) {
+      return String(this) + buildStringPad(this, targetLength, padString);
+    },
+    configurable: true,
+    writable: true
+  });
+}
+
 // polyfills for older browsers
 if (!Element.prototype.matches) {
   Element.prototype.matches =
