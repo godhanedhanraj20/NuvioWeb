@@ -12627,6 +12627,7 @@ button:focus-visible {
 }
 
 .series-stream-filter {
+  flex-shrink: 0;
   height: 46px;
   padding: 0 16px;
   border-radius: 999px;
@@ -12634,6 +12635,7 @@ button:focus-visible {
   background: rgb(var(--focus-color-rgb) / 0.06);
   color: var(--text-color);
   font-size: 20px;
+  white-space: nowrap;
 }
 
 .series-stream-filter.selected {
@@ -12857,6 +12859,7 @@ button:focus-visible {
   font-size: 22px;
   font-weight: 700;
   padding: 0;
+  white-space: nowrap;
 }
 
 .series-insight-divider {
@@ -14043,6 +14046,7 @@ button:focus-visible {
   line-height: 1.35;
   font-weight: 500;
   padding: 4px;
+  white-space: nowrap;
   transform-origin: center;
   transition: transform 160ms ease, color 160ms ease;
 }
@@ -14537,6 +14541,7 @@ button:focus-visible {
 }
 
 .stream-route-chip {
+  flex-shrink: 0;
   min-height: clamp(56px, 3.8vw, 70px);
   padding: 0 clamp(30px, 2vw, 40px);
   border-radius: 999px;
@@ -14549,6 +14554,7 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  white-space: nowrap;
 }
 
 .stream-route-chip.selected {
